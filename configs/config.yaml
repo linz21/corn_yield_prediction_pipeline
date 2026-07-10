@@ -1,0 +1,50 @@
+project:
+  name: corn-yield-prediction
+  author: Linlin Zhang
+  github: linz21
+
+data:
+  raw_dir: data/raw
+  processed_dir: data/processed
+  target_col: yield_bu_per_acre
+  test_size: 0.2
+  val_size: 0.1
+  random_seed: 42
+
+features:
+  numeric:
+    - year
+    - planted_acres
+    - precip_inches
+    - temp_avg_f
+    - soil_organic_matter
+    - ph_level
+  categorical:
+    - state
+    - commodity
+
+model:
+  name: xgboost
+  params:
+    n_estimators: 300
+    max_depth: 6
+    learning_rate: 0.05
+    subsample: 0.8
+    colsample_bytree: 0.8
+    random_state: 42
+
+bayesian_ci:
+  n_bootstrap: 1000
+  confidence_level: 0.95
+
+mlflow:
+  tracking_uri: mlruns
+  experiment_name: corn-yield-prediction
+
+api:
+  host: 0.0.0.0
+  port: 8000
+
+drift:
+  reference_window_days: 90
+  alert_threshold: 0.15
