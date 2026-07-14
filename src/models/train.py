@@ -74,11 +74,11 @@ def load_config(path: str) -> dict:
 
 
 def load_data(cfg: dict) -> pd.DataFrame:
-    path = Path(cfg["data"]["raw_dir"]) / "corn_yield_raw.csv"
+    path = Path(cfg["data"]["processed_dir"]) / cfg["data"]["processed_file"]
     if not path.exists():
         raise FileNotFoundError(
-            f"Data not found at {path}.\n"
-            "Run first:  python src/data/ingest.py --demo"
+            f"Processed data not found at {path}.\n"
+            "Run first:  python src/features/build_features.py"
         )
     df = pd.read_csv(path)
     log.info(f"Loaded {len(df):,} rows from {path}")

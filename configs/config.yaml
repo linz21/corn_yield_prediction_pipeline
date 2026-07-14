@@ -6,6 +6,7 @@ project:
 data:
   raw_dir: data/raw
   processed_dir: data/processed
+  processed_file: corn_yield_features.csv
   target_col: yield_bu_per_acre
   test_size: 0.2
   val_size: 0.1
@@ -19,6 +20,11 @@ features:
     - temp_avg_f
     - soil_organic_matter
     - ph_level
+    - yield_bu_per_acre_lag1
+    - precip_temp_ratio
+    - heat_stress
+    - soil_quality_index
+    - yield_3yr_avg
   categorical:
     - state
     - commodity
