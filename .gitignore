@@ -1,7 +1,8 @@
 .vscode/
 mlruns/
 data/raw/
-data/processed/
+data/processed/*
+!data/processed/*.dvc
 __pycache__/
 .python-version
 Miniconda*.sh

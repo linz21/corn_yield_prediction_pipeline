@@ -1,0 +1,5 @@
+outs:
+- md5: 6fd87e576d1e1a66f9dafa9233fd6808
+  size: 34117
+  hash: md5
+  path: corn_yield_features.csv
