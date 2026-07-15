@@ -1,0 +1,22 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: corn-yield-api
+    ports:
+      - "8000:8000"
+    environment:
+      - CONFIG_PATH=configs/config.yaml
+    volumes:
+      # Mount mlruns so new training runs are picked up without rebuilding image
+      - ../mlruns:/app/mlruns
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health').raise_for_status()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped

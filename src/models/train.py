@@ -231,6 +231,13 @@ def main():
         model_uri = mlflow.get_artifact_uri("model")
         log.info(f"Model logged to MLflow: {model_uri}")
 
+        # Also export a portable copy for serving — decoupled from MLflow's
+        # internal path bookkeeping, which breaks across machines/containers
+        import joblib
+        Path("models").mkdir(exist_ok=True)
+        joblib.dump(pipeline, "models/latest_model.pkl")
+        log.info("Portable model exported to models/latest_model.pkl")
+
     log.info("Run complete. Start the MLflow UI with:  mlflow ui")
 
 

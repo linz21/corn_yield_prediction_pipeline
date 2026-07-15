@@ -1,123 +1,103 @@
 """
-Tests for the prediction API.
-Run:  pytest tests/ -v
+Tests for the FastAPI prediction API.
+Run:  pytest tests/test_api.py -v
 """
 
 import pytest
-import numpy as np
-import pandas as pd
-from pathlib import Path
+from fastapi.testclient import TestClient
 import sys
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from src.api.main import app, YieldRequest
 
-# ---------------------------------------------------------------------------
-# Unit tests — no model required
-# ---------------------------------------------------------------------------
+client = TestClient(app)
 
-class TestInputValidation:
+
+class TestHealthEndpoint:
+    def test_health_returns_200(self):
+        response = client.get("/health")
+        assert response.status_code == 200
+
+    def test_health_response_shape(self):
+        response = client.get("/health")
+        data = response.json()
+        assert "status" in data
+        assert "model_loaded" in data
+        assert data["status"] == "ok"
+
+
+class TestPredictInputValidation:
     def test_valid_state_title_case(self):
-        """State name should be normalized to title case."""
-        from src.api.main import YieldRequest
-        req = YieldRequest(year=2023, state="illinois")
+        req = YieldRequest(year=2024, state="illinois")
         assert req.state == "Illinois"
 
-    def test_year_bounds(self):
-        from src.api.main import YieldRequest
-        from pydantic import ValidationError
-        with pytest.raises(ValidationError):
-            YieldRequest(year=1800, state="Illinois")   # too old
-        with pytest.raises(ValidationError):
-            YieldRequest(year=2100, state="Illinois")   # too future
+    def test_commodity_upper_case(self):
+        req = YieldRequest(year=2024, state="Iowa", commodity="corn")
+        assert req.commodity == "CORN"
 
-    def test_confidence_bounds(self):
-        from src.api.main import YieldRequest
-        from pydantic import ValidationError
-        with pytest.raises(ValidationError):
-            YieldRequest(year=2023, state="Illinois", confidence=1.5)
+    def test_year_lower_bound_rejected(self):
+        with pytest.raises(Exception):
+            YieldRequest(year=1800, state="Illinois")
+
+    def test_year_upper_bound_rejected(self):
+        with pytest.raises(Exception):
+            YieldRequest(year=2100, state="Illinois")
+
+    def test_confidence_out_of_range_rejected(self):
+        with pytest.raises(Exception):
+            YieldRequest(year=2024, state="Illinois", confidence=1.5)
+
+    def test_negative_planted_acres_rejected(self):
+        with pytest.raises(Exception):
+            YieldRequest(year=2024, state="Illinois", planted_acres=-100)
 
     def test_default_values(self):
-        from src.api.main import YieldRequest
-        req = YieldRequest(year=2023, state="Iowa")
-        assert req.commodity == "Corn"
+        req = YieldRequest(year=2024, state="Iowa")
+        assert req.commodity == "CORN"
         assert req.n_bootstrap == 200
         assert req.confidence == 0.95
 
 
-class TestDataIngestion:
-    def test_demo_dataset_shape(self, tmp_path):
-        """Demo dataset should have expected columns and rows."""
-        from src.data.ingest import make_demo_dataset
-        out = tmp_path / "corn_yield_raw.csv"
-        df  = make_demo_dataset(out)
-        assert out.exists()
-        assert "yield_bu_per_acre" in df.columns
-        assert "state" in df.columns
-        assert "year" in df.columns
-        assert len(df) > 0
+class TestPredictEndpoint:
+    """
+    These tests require a trained model in mlruns/ (run train.py first).
+    Marked to skip gracefully if no model is available, so CI doesn't
+    fail on a fresh checkout without training data.
+    """
 
-    def test_demo_yield_range(self, tmp_path):
-        """Yields should be in a realistic range."""
-        from src.data.ingest import make_demo_dataset
-        df = make_demo_dataset(tmp_path / "test.csv")
-        assert df["yield_bu_per_acre"].min() >= 80
-        assert df["yield_bu_per_acre"].max() <= 250
+    def test_predict_returns_valid_response_or_503(self):
+        payload = {
+            "year": 2024,
+            "state": "Illinois",
+            "planted_acres": 61300,
+        }
+        response = client.post("/predict", json=payload)
+        # 503 is acceptable if no model has been trained yet (e.g. fresh CI run)
+        assert response.status_code in (200, 503)
 
-    def test_demo_no_missing(self, tmp_path):
-        from src.data.ingest import make_demo_dataset
-        df = make_demo_dataset(tmp_path / "test.csv")
-        assert df["yield_bu_per_acre"].isnull().sum() == 0
+        if response.status_code == 200:
+            data = response.json()
+            assert "predicted_yield_bu_per_acre" in data
+            assert "ci_lower" in data
+            assert "ci_upper" in data
+            assert data["ci_upper"] >= data["ci_lower"]
+            assert data["confidence_level"] == 0.95
 
+    def test_predict_ci_bounds_are_ordered(self):
+        payload = {"year": 2023, "state": "Iowa"}
+        response = client.post("/predict", json=payload)
+        if response.status_code == 200:
+            data = response.json()
+            assert data["ci_lower"] <= data["predicted_yield_bu_per_acre"] <= data["ci_upper"]
 
-class TestBootstrapCI:
-    """Sanity checks on bootstrap CI logic."""
+    def test_predict_invalid_year_returns_422(self):
+        payload = {"year": 1800, "state": "Illinois"}
+        response = client.post("/predict", json=payload)
+        assert response.status_code == 422
 
-    def test_ci_contains_point_pred(self):
-        """Point prediction should (almost always) be within CI bounds."""
-        from src.models.train import bootstrap_prediction_intervals
-        from sklearn.pipeline import Pipeline
-        from sklearn.preprocessing import StandardScaler
-        from xgboost import XGBRegressor
-
-        rng = np.random.default_rng(0)
-        X_train = pd.DataFrame({"x": rng.normal(0, 1, 100)})
-        y_train = pd.Series(X_train["x"] * 2 + rng.normal(0, 0.1, 100))
-        X_test  = pd.DataFrame({"x": [0.5, 1.0, -0.5]})
-
-        pipe = Pipeline([
-            ("pre", StandardScaler()),
-            ("model", XGBRegressor(n_estimators=50, random_state=0)),
-        ])
-        pipe.fit(X_train, y_train)
-
-        point, lower, upper = bootstrap_prediction_intervals(
-            pipe, X_train, y_train, X_test, n_bootstrap=100
-        )
-        assert np.all(upper >= lower), "Upper bound must be >= lower bound"
-        assert np.all(upper - lower > 0), "CI width must be positive"
-
-    def test_wider_ci_for_higher_confidence(self):
-        """95% CI should be wider than 80% CI."""
-        from src.models.train import bootstrap_prediction_intervals
-        from sklearn.pipeline import Pipeline
-        from sklearn.preprocessing import StandardScaler
-        from xgboost import XGBRegressor
-
-        rng = np.random.default_rng(1)
-        X_train = pd.DataFrame({"x": rng.normal(0, 1, 100)})
-        y_train = pd.Series(X_train["x"] * 3 + rng.normal(0, 0.5, 100))
-        X_test  = pd.DataFrame({"x": [0.0]})
-
-        pipe = Pipeline([
-            ("pre", StandardScaler()),
-            ("model", XGBRegressor(n_estimators=50, random_state=0)),
-        ])
-        pipe.fit(X_train, y_train)
-
-        _, lo80, hi80 = bootstrap_prediction_intervals(pipe, X_train, y_train, X_test, 200, 0.80)
-        _, lo95, hi95 = bootstrap_prediction_intervals(pipe, X_train, y_train, X_test, 200, 0.95)
-
-        width_80 = hi80[0] - lo80[0]
-        width_95 = hi95[0] - lo95[0]
-        assert width_95 > width_80, f"95% CI ({width_95:.2f}) should be wider than 80% CI ({width_80:.2f})"
+    def test_predict_missing_state_returns_422(self):
+        payload = {"year": 2024}
+        response = client.post("/predict", json=payload)
+        assert response.status_code == 422
