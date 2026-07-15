@@ -67,13 +67,32 @@ def clean_usda(df: pd.DataFrame) -> pd.DataFrame:
     available = {k: v for k, v in cols.items() if k in df.columns}
     df = df[list(available.keys())].rename(columns=available)
 
-    # Cast yield to numeric — USDA sometimes returns " (D)" for suppressed values
     df["yield_bu_per_acre"] = pd.to_numeric(df["yield_bu_per_acre"].str.replace(",", ""), errors="coerce")
     df["year"] = pd.to_numeric(df["year"], errors="coerce")
     df = df.dropna(subset=["yield_bu_per_acre", "year"])
     df["state"] = df["state"].str.title()
+    df["county"] = df["county"].str.title()
     return df
 
+def fetch_usda_by_category(api_key: str, state: str, statisticcat: str,
+                            year_start: int = 2000, year_end: int = 2023) -> pd.DataFrame:
+    """Fetch a specific USDA statistic category (e.g. AREA PLANTED, AREA HARVESTED)."""
+    params = {
+        "key": api_key,
+        "commodity_desc": "CORN",
+        "statisticcat_desc": statisticcat,
+        "state_name": state,
+        "freq_desc": "ANNUAL",
+        "year__GE": year_start,
+        "year__LE": year_end,
+        "format": "JSON",
+    }
+    resp = requests.get(USDA_BASE_URL, params=params, timeout=30)
+    resp.raise_for_status()
+    data = resp.json()
+    if "data" not in data or len(data["data"]) == 0:
+        return pd.DataFrame()
+    return pd.DataFrame(data["data"])
 
 def make_demo_dataset(out_path: Path) -> pd.DataFrame:
     """
@@ -155,22 +174,70 @@ def main():
             "  3. Run with --demo to generate synthetic data immediately"
         )
         raise SystemExit(1)
+    
+    all_yield = []
+    all_planted = []
+    all_harvested = []
 
-    all_dfs = []
     for state in args.states:
-        df = fetch_usda(args.api_key, state, args.year_start, args.year_end)
-        if not df.empty:
-            all_dfs.append(clean_usda(df))
+        yield_df = fetch_usda(args.api_key, state, args.year_start, args.year_end)
+        if not yield_df.empty:
+            all_yield.append(clean_usda(yield_df))
+        planted_df = fetch_usda_by_category(args.api_key, state, "AREA PLANTED",
+                                            args.year_start, args.year_end)
+        if not planted_df.empty:
+            planted_df = planted_df[planted_df["short_desc"] == "CORN - ACRES PLANTED"]
+            planted_df = planted_df[planted_df["agg_level_desc"] == "COUNTY"]
+        
+            planted_df = planted_df[["year", "state_name", "county_name", "Value"]].rename(
+                columns={"state_name": "state", "county_name": "county", "Value": "planted_acres"})
+            planted_df["year"] = pd.to_numeric(planted_df["year"], errors="coerce")
+            planted_df["state"] = planted_df["state"].str.title()
+            planted_df["county"] = planted_df["county"].str.title()
+            planted_df["planted_acres"] = pd.to_numeric(
+                planted_df["planted_acres"].str.replace(",", ""), errors="coerce")
+            planted_df = planted_df.drop_duplicates(subset=["year", "state", "county"])
+            all_planted.append(planted_df)
 
-    if not all_dfs:
+        # Dropped: AREA HARVESTED has conflicting Census vs Survey values for the
+        # same county/year with no reliable field to distinguish them. Revisit in v2
+        # by adding source_desc filtering once a clean distinguishing field is found.
+
+        # harvested_df = fetch_usda_by_category(args.api_key, state, "AREA HARVESTED",
+        #                                       args.year_start, args.year_end)
+        # if not harvested_df.empty:
+        #     harvested_df = harvested_df[harvested_df["short_desc"] == "CORN, GRAIN - ACRES HARVESTED"]
+        #     harvested_df = harvested_df[harvested_df["agg_level_desc"] == "COUNTY"]
+        
+        #     harvested_df = harvested_df[["year", "state_name", "county_name", "Value"]].rename(
+        #         columns={"state_name": "state", "county_name": "county", "Value": "harvested_acres"})
+        #     harvested_df["year"] = pd.to_numeric(harvested_df["year"], errors="coerce")
+        #     harvested_df["state"] = harvested_df["state"].str.title()
+        #     harvested_df["county"] = harvested_df["county"].str.title()
+        #     harvested_df["harvested_acres"] = pd.to_numeric(
+        #         harvested_df["harvested_acres"].str.replace(",", ""), errors="coerce")
+        #     harvested_df = harvested_df.drop_duplicates(subset=["year", "state", "county"])
+        #     all_harvested.append(harvested_df)
+
+    if not all_yield:
         log.error("No data fetched. Check API key and state names.")
         raise SystemExit(1)
 
-    combined = pd.concat(all_dfs, ignore_index=True)
+    yield_combined = pd.concat(all_yield, ignore_index=True)
+    planted_combined = pd.concat(all_planted, ignore_index=True) if all_planted else pd.DataFrame()
+    # harvested_combined = pd.concat(all_harvested, ignore_index=True) if all_harvested else pd.DataFrame()
+
+    combined = yield_combined
+    if not planted_combined.empty:
+        combined = combined.merge(planted_combined, on=["year", "state", "county"], how="left")
+    # if not harvested_combined.empty:
+    #     combined = combined.merge(harvested_combined, on=["year", "state", "county"], how="left")
+
     combined.to_csv(out_path, index=False)
     log.info(f"\nSaved {len(combined)} rows → {out_path}")
     log.info(f"States: {combined['state'].nunique()}  |  Years: {combined['year'].min()}–{combined['year'].max()}")
 
+    
 
 if __name__ == "__main__":
     main()

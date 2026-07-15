@@ -66,7 +66,17 @@ curl -X POST http://localhost:8000/predict \
 
 | Metric | Value |
 |--------|-------|
-| Test RMSE | TBD |
-| Test R² | TBD |
-| CI Coverage (95%) | TBD |
+| Test RMSE | 13.6 bu/acre |
+| Test R² | 0.900 |
+| Test MAPE | 8.75% |
+| CI Coverage (95%) | 94.1% |
+| CI Width (mean) | 54.32 bu/acre |
 | API Latency (p95) | TBD |
+| Training rows | 21,290 (real USDA county-level data) |
+
+## Known Limitations
+- **Weather/soil features** (precipitation, temperature, soil pH) are only available in 
+  synthetic demo data. Real USDA Quickstats data does not include these — would require 
+  merging NOAA weather data and USDA NRCS soil survey data (planned for v2).
+- **Harvested acreage** was excluded due to conflicting Survey vs Census values in USDA's 
+  data with no reliable disambiguating field.

@@ -46,6 +46,11 @@ def add_regional_trend(df: pd.DataFrame) -> pd.DataFrame:
     )
     return df
 
+def add_crop_failure_flag(df: pd.DataFrame) -> pd.DataFrame:
+    """Flag complete crop failure years — informative signal, not noise."""
+    df = df.copy()
+    df["was_crop_failure"] = (df["yield_bu_per_acre"] == 0).astype(int)
+    return df
 
 def build_all_features(df: pd.DataFrame) -> pd.DataFrame:
     """Run the full feature engineering pipeline."""
@@ -53,6 +58,7 @@ def build_all_features(df: pd.DataFrame) -> pd.DataFrame:
     df = add_weather_interaction(df)
     df = add_soil_quality_index(df)
     df = add_regional_trend(df)
+    df = add_crop_failure_flag(df)
     return df
 
 

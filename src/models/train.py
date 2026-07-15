@@ -30,13 +30,20 @@ log = logging.getLogger(__name__)
 # Bayesian-style prediction intervals via bootstrap
 # This is Linlin's key differentiator — calibrated uncertainty estimates
 # ---------------------------------------------------------------------------
+
+
 def bootstrap_prediction_intervals(
     pipeline, X_train, y_train, X_test,
     n_bootstrap: int = 500,
     confidence: float = 0.95,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Estimate prediction intervals using bootstrap resampling.
+    Estimate PREDICTION intervals (not just confidence intervals) using bootstrap
+    resampling + residual noise injection.
+
+    A prediction interval must account for TWO sources of uncertainty:
+      1. Model uncertainty — captured by retraining on bootstrap resamples
+      2. Irreducible noise — captured by adding residual variance from held-out data
 
     Returns:
         point_pred   : point predictions from the full model
@@ -46,12 +53,25 @@ def bootstrap_prediction_intervals(
     point_pred = pipeline.predict(X_test)
     boot_preds = np.zeros((n_bootstrap, len(X_test)))
 
+    # First, compute residuals from the full model on a held-out slice of training data
+    # to estimate the irreducible noise level
+    from sklearn.model_selection import train_test_split as tts
+    X_resid_train, X_resid_holdout, y_resid_train, y_resid_holdout = tts(
+        X_train, y_train, test_size=0.2, random_state=99
+    )
+    resid_model = Pipeline(steps=[
+        ("pre", pipeline.named_steps["pre"]),
+        ("model", XGBRegressor(n_estimators=200, max_depth=6, random_state=99)),
+    ])
+    resid_model.fit(X_resid_train, y_resid_train)
+    residuals = y_resid_holdout.values - resid_model.predict(X_resid_holdout)
+    residual_std = np.std(residuals)
+
     rng = np.random.default_rng(42)
     for i in range(n_bootstrap):
         idx = rng.integers(0, len(X_train), len(X_train))
         X_b = X_train.iloc[idx]
         y_b = y_train.iloc[idx]
-        # Refit a clone — use shallow model for speed
         boot_model = Pipeline(steps=[
             ("pre", pipeline.named_steps["pre"]),
             ("model", XGBRegressor(
@@ -60,7 +80,11 @@ def bootstrap_prediction_intervals(
             )),
         ])
         boot_model.fit(X_b, y_b)
-        boot_preds[i] = boot_model.predict(X_test)
+        base_preds = boot_model.predict(X_test)
+        # Add irreducible noise sampled from the residual distribution —
+        # this is what converts a confidence interval into a prediction interval
+        noise = rng.normal(0, residual_std, size=len(X_test))
+        boot_preds[i] = base_preds + noise
 
     alpha = 1 - confidence
     lower = np.percentile(boot_preds, 100 * alpha / 2, axis=0)
@@ -108,13 +132,22 @@ def build_pipeline(cfg: dict) -> Pipeline:
 
 
 def evaluate(y_true, y_pred) -> dict:
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
+    
+    # MAPE is undefined when y_true is 0 — exclude those rows for this metric only
+    nonzero_mask = np.abs(y_true) > 1e-6
+    if nonzero_mask.sum() > 0:
+        mape = float(np.mean(np.abs((y_true[nonzero_mask] - y_pred[nonzero_mask]) / y_true[nonzero_mask])) * 100)
+    else:
+        mape = float("nan")
+
     return {
         "rmse"    : float(np.sqrt(mean_squared_error(y_true, y_pred))),
         "mae"     : float(mean_absolute_error(y_true, y_pred)),
         "r2"      : float(r2_score(y_true, y_pred)),
-        "mape"    : float(np.mean(np.abs((y_true - y_pred) / y_true)) * 100),
+        "mape"    : mape,
     }
-
 
 def main():
     parser = argparse.ArgumentParser()

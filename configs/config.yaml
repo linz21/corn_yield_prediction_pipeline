@@ -16,18 +16,26 @@ features:
   numeric:
     - year
     - planted_acres
-    - precip_inches
-    - temp_avg_f
-    - soil_organic_matter
-    - ph_level
     - yield_bu_per_acre_lag1
-    - precip_temp_ratio
-    - heat_stress
-    - soil_quality_index
     - yield_3yr_avg
+    # --- Below: synthetic-data-only features, not available from USDA Quickstats ---
+    # - precip_inches
+    # - temp_avg_f
+    # - soil_organic_matter
+    # - ph_level 
+    # - precip_temp_ratio
+    # - heat_stress
+    # - soil_quality_index
+    
   categorical:
     - state
     - commodity
+    # - county                 # available in real data but high cardinality — test separately
+
+  # --- Dropped: harvested_acres ---
+  # USDA Quickstats "AREA HARVESTED" has multiple conflicting values per county/year
+  # (Survey vs Census estimates, e.g. 26,058 / 59,700 / 67,065 for the same record)
+  # with no reliable field to disambiguate. Revisit if source_desc filtering is found.
 
 model:
   name: xgboost
