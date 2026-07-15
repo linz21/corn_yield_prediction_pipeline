@@ -80,3 +80,19 @@ curl -X POST http://localhost:8000/predict \
   merging NOAA weather data and USDA NRCS soil survey data (planned for v2).
 - **Harvested acreage** was excluded due to conflicting Survey vs Census values in USDA's 
   data with no reliable disambiguating field.
+
+## Note on CI/CD
+The GitHub Actions pipeline (`.github/workflows/ci.yml`) trains a quick model on 
+synthetic demo data purely to verify the pipeline runs end-to-end 
+(data → features → train → serve → Docker build). This keeps CI fast and 
+independent of any API keys or credentials.
+
+The production model referenced in the Results section below was trained 
+separately on real USDA Quickstats data (30,416 rows, county-level, 
+2000–2025) and is not what CI builds. To reproduce the real model locally:
+
+```bash
+python src/data/ingest.py --api-key YOUR_USDA_KEY
+python src/features/build_features.py
+python src/models/train.py --run-name "production-model"
+```
