@@ -35,6 +35,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate demo data and train model
+        run: |
+          python src/data/ingest.py --demo
+          python src/features/build_features.py
+          python src/models/train.py --no-bootstrap --run-name "ci-build"
+
       - name: Build Docker image
         run: docker build -f docker/Dockerfile -t corn-yield-api:${{ github.sha }} .
 
