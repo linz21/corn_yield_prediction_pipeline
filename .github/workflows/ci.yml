@@ -45,6 +45,8 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Generate demo data and train model
+        env:
+          MLFLOW_ALLOW_FILE_STORE: "true"
         run: |
           python src/data/ingest.py --demo
           python src/features/build_features.py
