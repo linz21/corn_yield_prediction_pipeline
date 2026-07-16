@@ -4,6 +4,19 @@
 
 A production-grade ML system that predicts US corn yield (bu/acre) with **Bayesian bootstrap confidence intervals**, full experiment tracking, drift monitoring, and CI/CD deployment.
 
+## 🔗 Live Demo
+Deployed on AWS EC2 with a permanent Elastic IP: **http://54.214.151.133:8000/docs**
+
+Try a prediction:
+```bash
+curl -X POST http://54.214.151.133:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"year": 2024, "state": "Illinois", "planted_acres": 61300}'
+```
+
+> Note: this demo instance runs intermittently to manage cloud costs. If the link isn't responding, see [Quickstart](#quickstart) to run it locally.
+
+
 ## Architecture
 
 ```
