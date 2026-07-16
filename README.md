@@ -86,7 +86,8 @@ curl -X POST http://localhost:8000/predict \
 | Test MAPE | 8.75% |
 | CI Coverage (95%) | 94.1% |
 | CI Width (mean) | 54.32 bu/acre |
-| API Latency (p95) | TBD |
+| Model Inference Latency | ~3-7ms (server-side, from API response) |
+| API Round-Trip Latency (p95) | 171.3ms (external, includes network) |
 | Training rows | 21,290 (real USDA county-level data) |
 
 ## Known Limitations
