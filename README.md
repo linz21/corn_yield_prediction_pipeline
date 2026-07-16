@@ -7,11 +7,13 @@ A production-grade ML system that predicts US corn yield (bu/acre) with **Bayesi
 ## 🔗 Live Demo
 Deployed on AWS EC2 with a permanent Elastic IP: **http://54.214.151.133:8000/docs**
 
+![API Demo](docs/images/api_demo_screenshot.png)
+
 Try a prediction:
 ```bash
 curl -X POST http://54.214.151.133:8000/predict \
   -H "Content-Type: application/json" \
-  -d '{"year": 2024, "state": "Illinois", "planted_acres": 61300}'
+  -d '{"year": 2024, "state": "Illinois", "planted_acres": 61300, "yield_bu_per_acre_lag1": 195, "yield_3yr_avg": 198}'
 ```
 
 > Note: this demo instance runs intermittently to manage cloud costs. If the link isn't responding, see [Quickstart](#quickstart) to run it locally.
