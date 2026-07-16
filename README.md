@@ -18,20 +18,24 @@ curl -X POST http://54.214.151.133:8000/predict \
 
 > Note: this demo instance runs intermittently to manage cloud costs. If the link isn't responding, see [Quickstart](#quickstart) to run it locally.
 
-
 ## Architecture
 
 ```
-USDA NASS API → Data Pipeline (DVC) → XGBoost 
+USDA NASS API → Data Pipeline (DVC) → XGBoost
                                             ↓
                                     MLflow Experiment Tracking
+                                            ↓
+                              Portable Model Export (joblib)
                                             ↓
                                FastAPI /predict (with 95% CI)
                                             ↓
                             Docker → GitHub Actions → AWS EC2
                                             ↓
-                               Evidently AI Drift Monitor
+                                    🔗 Live Elastic IP Endpoint
 ```
+
+
+
 
 ## Quickstart
 
