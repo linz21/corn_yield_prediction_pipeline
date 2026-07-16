@@ -34,29 +34,37 @@ USDA NASS API → Data Pipeline (DVC) → XGBoost
                                     🔗 Live Elastic IP Endpoint
 ```
 
-
-
-
 ## Quickstart
 
 ```bash
 # 1. Clone and install
-git clone https://github.com/linz21/corn-yield-prediction
-cd corn-yield-prediction
+git clone https://github.com/linz21/corn_yield_prediction_pipeline.git
+cd corn_yield_prediction_pipeline
 pip install -r requirements.txt
 
 # 2. Get data (demo — no API key needed)
 python src/data/ingest.py --demo
 
-# 3. Train model
-python src/models/train.py
+# 3. Build features
+python src/features/build_features.py
 
-# 4. View experiments
-mlflow ui   # → http://localhost:5000
+# 4. Train model (exports models/latest_model.pkl for serving)
+python src/models/train.py --no-bootstrap
 
-# 5. Serve API
+# 5. View experiments
+MLFLOW_ALLOW_FILE_STORE=true mlflow ui   # → http://localhost:5000
+
+# 6. Serve API
 uvicorn src.api.main:app --reload   # → http://localhost:8000/docs
 ```
+> **Note:** The steps above use synthetic demo data (240 rows) to get the pipeline running quickly. 
+> For the real production model (30,416 rows, real USDA yield data, R²=0.90), get a free API key 
+> at [quickstats.nass.usda.gov/api](https://quickstats.nass.usda.gov/api) and run:
+> ```bash
+> python src/data/ingest.py --api-key YOUR_USDA_KEY
+> python src/features/build_features.py
+> python src/models/train.py --run-name "production-model"
+> ```
 
 ## Sample prediction with confidence interval
 
@@ -79,7 +87,7 @@ curl -X POST http://localhost:8000/predict \
 
 ## Tech Stack
 
-`XGBoost` · `MLflow` · `DVC` · `FastAPI` · `Pydantic` · `Evidently AI` · `Docker` · `GitHub Actions` · `AWS EC2`
+`XGBoost` · `MLflow` · `DVC` · `FastAPI` · `Pydantic` · `Docker` · `GitHub Actions` · `AWS EC2`
 
 ## Results
 
