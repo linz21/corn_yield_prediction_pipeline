@@ -1,4 +1,6 @@
 [core]
-    remote = local_storage
+    remote = s3remote
 ['remote "local_storage"']
     url = /Users/Linlin/dvc-storage
+['remote "s3remote"']
+    url = s3://linz21-corn-yield-dvc-storage/dvc-storage
