@@ -23,7 +23,7 @@ curl -X POST http://54.214.151.133:8000/predict \
 ## Architecture
 
 ```
-USDA NASS API → Data Pipeline (DVC) → XGBoost
+USDA NASS API → Data Pipeline (DVC -> S3) → XGBoost
                                             ↓
                                     MLflow Experiment Tracking
                                             ↓
