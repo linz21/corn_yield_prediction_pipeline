@@ -8,3 +8,4 @@ __pycache__/
 Miniconda*.sh
 Miniforge*.sh
 models/
+reports/

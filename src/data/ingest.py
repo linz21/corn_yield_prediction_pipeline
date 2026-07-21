@@ -151,6 +151,8 @@ def main():
     parser.add_argument("--year-end", type=int, default=2023)
     parser.add_argument("--demo", action="store_true",
                         help="Generate synthetic demo data (no API key needed)")
+    parser.add_argument("--skip-drift-check", action="store_true",
+                        help="Skip the automatic post-ingestion drift check")
     parser.add_argument("--config", type=str, default="configs/config.yaml")
     args = parser.parse_args()
 
@@ -237,6 +239,40 @@ def main():
     log.info(f"\nSaved {len(combined)} rows → {out_path}")
     log.info(f"States: {combined['state'].nunique()}  |  Years: {combined['year'].min()}–{combined['year'].max()}")
 
+    # Event-driven drift check: run automatically after every real data
+    # refresh, since this is the actual point where the input distribution
+    # could change (new growing season, new acreage patterns, etc.) — a more
+    # meaningful trigger than an arbitrary weekly calendar schedule for a
+    # dataset that only updates a few times per year.
+    if not args.skip_drift_check:
+        trigger_drift_check(out_path)
+
+
+def trigger_drift_check(current_data_path: Path):
+    """
+    Run the drift monitor against freshly-ingested data, comparing it to the
+    frozen reference distribution. Runs feature engineering first, since
+    the drift reference is built on processed (not raw) features.
+    """
+    import subprocess
+
+    log.info("Running post-ingestion drift check ...")
+    try:
+        # Rebuild features on the fresh data first
+        subprocess.run(
+            ["python", "src/features/build_features.py"],
+            check=True,
+        )
+        # Run the drift check against the newly processed features
+        subprocess.run(
+            ["python", "src/monitoring/drift_report.py",
+             "--current", "data/processed/corn_yield_features.csv"],
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        log.error(f"Drift check failed to run: {e}")
+        log.error("Data ingestion succeeded, but automated drift check did not complete. "
+                 "Run manually: python src/monitoring/drift_report.py --current <path>")
     
 
 if __name__ == "__main__":

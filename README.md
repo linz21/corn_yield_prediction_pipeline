@@ -20,6 +20,8 @@ curl -X POST http://54.214.151.133:8000/predict \
 
 ## Architecture
 
+## Architecture
+
 ```
 USDA NASS API → Data Pipeline (DVC) → XGBoost
                                             ↓
@@ -31,9 +33,8 @@ USDA NASS API → Data Pipeline (DVC) → XGBoost
                                             ↓
                             Docker → GitHub Actions → AWS EC2
                                             ↓
-                                    🔗 Live Elastic IP Endpoint
+                          Evidently AI Drift Monitoring (validated ✓)
 ```
-
 ## Quickstart
 
 ```bash
@@ -101,6 +102,29 @@ curl -X POST http://localhost:8000/predict \
 | Model Inference Latency | ~3-7ms (server-side, from API response) |
 | API Round-Trip Latency (p95) | 171.3ms (external, includes network) |
 | Training rows | 21,290 (real USDA county-level data) |
+
+## Drift Monitoring
+
+Data drift is monitored using Evidently AI, comparing incoming data against
+a frozen reference distribution from training data.
+
+**Event-driven (primary):** Automatically triggered after every real USDA
+data refresh (`ingest.py --api-key ...`), since this is the actual point
+where the input distribution could meaningfully shift — a new growing
+season, revised acreage figures, etc.
+
+**Scheduled (safety net):** A weekly cron job on the EC2 instance also runs
+the check, primarily to demonstrate reliable automated scheduling and catch
+any upstream pipeline issues between data refreshes — though corn yield
+data itself only updates a few times per year, so this is intentionally a
+lighter-weight backstop rather than the primary trigger.
+
+```bash
+python scripts/create_reference_dataset.py       # one-time setup
+python src/monitoring/drift_report.py --current <new_data.csv>   # manual run
+```
+
+Detection validated with `scripts/inject_test_drift.py`.
 
 ## Known Limitations
 - **Weather/soil features** (precipitation, temperature, soil pH) are only available in 
