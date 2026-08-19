@@ -238,6 +238,20 @@ def main():
         val_metrics  = evaluate(y_val, pipeline.predict(X_val))
         test_metrics = evaluate(y_test, pipeline.predict(X_test))
 
+        # ── Final production model: retrain on ALL data before export ────────
+        # The chronological train/val/test split above gives an honest estimate
+        # of how this approach generalizes (reported as val/test metrics) --
+        # but the model actually deployed should use every available row,
+        # including the 2015-2025 val/test years, since this is a forecasting
+        # task and withholding the most recent, most relevant data from the
+        # deployed model would hurt real-world prediction quality for no
+        # benefit once the approach is already validated.
+        log.info(f"Retraining final production model on all {len(df)} rows "
+                  f"(years {df[year_col].min()}-{df[year_col].max()}) before export...")
+        X_full, y_full = df[feature_cols], df[target]
+        production_pipeline = build_pipeline(cfg)
+        production_pipeline.fit(X_full, y_full)
+
         # Log metrics
         for k, v in val_metrics.items():
             mlflow.log_metric(f"val_{k}", v)
@@ -270,7 +284,7 @@ def main():
         # internal path bookkeeping, which breaks across machines/containers
         import joblib
         Path("models").mkdir(exist_ok=True)
-        joblib.dump(pipeline, "models/latest_model.pkl")
+        joblib.dump(production_pipeline, "models/latest_model.pkl")
         log.info("Portable model exported to models/latest_model.pkl")
 
     log.info("Run complete. Start the MLflow UI with:  mlflow ui")
