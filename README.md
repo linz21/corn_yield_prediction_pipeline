@@ -105,7 +105,7 @@ curl -X POST http://localhost:8000/predict \
 | CI Width (mean) | 54.32 bu/acre |
 | Model Inference Latency | ~3-7ms (server-side, from API response) |
 | API Round-Trip Latency (p95) | 171.3ms (external, includes network) |
-| Training rows | 21,290 (real USDA county-level data) |
+| Training rows | 21,290 (70% split of 30,416 processed rows; 10% val / 20% test) |
 
 ## Drift Monitoring
 
