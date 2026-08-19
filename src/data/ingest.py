@@ -161,12 +161,13 @@ def main():
 
     raw_dir = Path(cfg["data"]["raw_dir"])
     raw_dir.mkdir(parents=True, exist_ok=True)
-    out_path = raw_dir / "corn_yield_raw.csv"
 
     if args.demo:
+        out_path = raw_dir / "corn_yield_raw_demo.csv"
         log.info("Running in DEMO mode — generating synthetic data ...")
         make_demo_dataset(out_path)
         return
+    out_path = raw_dir / "corn_yield_raw.csv"
 
     if not args.api_key:
         log.error(

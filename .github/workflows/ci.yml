@@ -49,8 +49,8 @@ jobs:
           MLFLOW_ALLOW_FILE_STORE: "true"
         run: |
           python src/data/ingest.py --demo
-          python src/features/build_features.py
-          python src/models/train.py --no-bootstrap --run-name "ci-build"
+          python src/features/build_features.py --demo
+          python src/models/train.py --no-bootstrap --run-name "ci-build" --config configs/config_demo.yaml
 
       - name: Build Docker image
         run: docker build -f docker/Dockerfile -t corn-yield-api:${{ github.sha }} .

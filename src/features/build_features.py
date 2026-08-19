@@ -52,6 +52,34 @@ def add_crop_failure_flag(df: pd.DataFrame) -> pd.DataFrame:
     df["was_crop_failure"] = (df["yield_bu_per_acre"] == 0).astype(int)
     return df
 
+def drop_incomplete_current_year(df: pd.DataFrame, year_col: str = "year",
+                                  min_completeness_ratio: float = 0.5) -> pd.DataFrame:
+    """Drop the most recent year if it looks like a still-in-progress growing
+    season rather than complete data -- USDA reports partial results for the
+    current season before harvest finishes, and mixing that with complete
+    historical years isn't a fair comparison (early estimates aren't the
+    same as final yields), and would distort whichever split it lands in.
+
+    Uses a general row-count heuristic (far fewer rows than a typical year)
+    rather than a hardcoded year, so this keeps working correctly without
+    manual updates as time passes.
+    """
+    year_counts = df[year_col].value_counts().sort_index()
+    if len(year_counts) < 2:
+        return df  # not enough years to compare against
+
+    most_recent_year = year_counts.index.max()
+    most_recent_count = year_counts.loc[most_recent_year]
+    other_years_median = year_counts.drop(most_recent_year).median()
+
+    if most_recent_count < min_completeness_ratio * other_years_median:
+        print(f"Dropping year {most_recent_year}: only {most_recent_count} rows "
+              f"vs. a typical {other_years_median:.0f} for other years -- looks "
+              f"like a still-in-progress growing season, not complete data.")
+        df = df[df[year_col] != most_recent_year].copy()
+
+    return df
+
 def build_all_features(df: pd.DataFrame) -> pd.DataFrame:
     """Run the full feature engineering pipeline."""
     df = add_lag_features(df)
@@ -63,8 +91,20 @@ def build_all_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    df = pd.read_csv("data/raw/corn_yield_raw.csv")
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--demo", action="store_true",
+                        help="Process demo/synthetic data instead of real production data")
+    args = parser.parse_args()
+
+    if args.demo:
+        raw_path, out_path = "data/raw/corn_yield_raw_demo.csv", "data/processed/corn_yield_features_demo.csv"
+    else:
+        raw_path, out_path = "data/raw/corn_yield_raw.csv", "data/processed/corn_yield_features.csv"
+
+    df = pd.read_csv(raw_path)
+    df = drop_incomplete_current_year(df)
     df_features = build_all_features(df)
-    df_features.to_csv("data/processed/corn_yield_features.csv", index=False)
+    df_features.to_csv(out_path, index=False)
     print(f"Features added. Shape: {df.shape} → {df_features.shape}")
     print(f"New columns: {set(df_features.columns) - set(df.columns)}")

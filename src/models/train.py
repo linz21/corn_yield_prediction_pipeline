@@ -284,8 +284,9 @@ def main():
         # internal path bookkeeping, which breaks across machines/containers
         import joblib
         Path("models").mkdir(exist_ok=True)
-        joblib.dump(production_pipeline, "models/latest_model.pkl")
-        log.info("Portable model exported to models/latest_model.pkl")
+        model_output_path = cfg["model"]["output_path"]
+        joblib.dump(production_pipeline, model_output_path)
+        log.info(f"Portable model exported to {model_output_path}")
 
     log.info("Run complete. Start the MLflow UI with:  mlflow ui")
 

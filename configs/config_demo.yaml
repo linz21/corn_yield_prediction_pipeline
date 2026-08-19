@@ -6,7 +6,7 @@ project:
 data:
   raw_dir: data/raw
   processed_dir: data/processed
-  processed_file: corn_yield_features.csv
+  processed_file: corn_yield_features_demo.csv
   target_col: yield_bu_per_acre
   test_size: 0.2
   val_size: 0.1
@@ -39,7 +39,7 @@ features:
 
 model:
   name: xgboost
-  output_path: models/latest_model.pkl
+  output_path: models/latest_model_demo.pkl
   params:
     n_estimators: 300
     max_depth: 6
