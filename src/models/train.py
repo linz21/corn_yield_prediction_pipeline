@@ -172,15 +172,50 @@ def main():
     y = df[target]
 
     # ── Train / val / test split ────────────────────────────────────────────
-    X_trainval, X_test, y_trainval, y_test = train_test_split(
-        X, y, test_size=cfg["data"]["test_size"], random_state=seed
+        # ── Chronological train / val / test split ──────────────────────────────
+    # Corn yield is spatially/temporally correlated (a county's yield in year N
+    # is similar to that same county's yield in N-1/N+1) -- a random row-level
+    # split let the model implicitly train on years chronologically AFTER what
+    # it was "tested" on, which doesn't reflect the real deployment scenario
+    # (forecasting a genuinely unseen future year from only past data) and made
+    # the reported R^2 optimistic. Fixed by splitting on whole years, in
+    # chronological order, so val/test are always strictly later than train.
+    year_col = "year"  # adjust if the actual column name differs
+    df = df.sort_values(year_col).reset_index(drop=True)
+
+    year_counts = df[year_col].value_counts().sort_index()
+    cum_frac = year_counts.cumsum() / len(df)
+
+    test_size = cfg["data"]["test_size"]
+    val_size = cfg["data"]["val_size"]
+    train_frac_cutoff = 1 - test_size - val_size
+    val_frac_cutoff = 1 - test_size
+
+    train_years = cum_frac[cum_frac <= train_frac_cutoff].index
+    val_years = cum_frac[(cum_frac > train_frac_cutoff) & (cum_frac <= val_frac_cutoff)].index
+    test_years = cum_frac[cum_frac > val_frac_cutoff].index
+
+    if len(train_years) == 0 or len(val_years) == 0 or len(test_years) == 0:
+        raise ValueError(
+            f"Chronological split produced an empty split -- check "
+            f"test_size/val_size against the actual number of distinct "
+            f"years ({df[year_col].nunique()}) in the data."
+        )
+
+    train_df = df[df[year_col].isin(train_years)]
+    val_df   = df[df[year_col].isin(val_years)]
+    test_df  = df[df[year_col].isin(test_years)]
+
+    X_train, y_train = train_df[feature_cols], train_df[target]
+    X_val,   y_val   = val_df[feature_cols],   val_df[target]
+    X_test,  y_test  = test_df[feature_cols],  test_df[target]
+
+    log.info(
+        f"Chronological split -- train: {train_years.min()}-{train_years.max()} "
+        f"({len(X_train)} rows), val: {val_years.min()}-{val_years.max()} "
+        f"({len(X_val)} rows), test: {test_years.min()}-{test_years.max()} "
+        f"({len(X_test)} rows)"
     )
-    X_train, X_val, y_train, y_val = train_test_split(
-        X_trainval, y_trainval,
-        test_size=cfg["data"]["val_size"] / (1 - cfg["data"]["test_size"]),
-        random_state=seed,
-    )
-    log.info(f"Split — train: {len(X_train)}  val: {len(X_val)}  test: {len(X_test)}")
 
     # ── MLflow tracking ──────────────────────────────────────────────────────
     mlflow.set_tracking_uri(cfg["mlflow"]["tracking_uri"])
@@ -209,8 +244,8 @@ def main():
         for k, v in test_metrics.items():
             mlflow.log_metric(f"test_{k}", v)
 
-        log.info(f"Val  RMSE={val_metrics['rmse']:.2f}  R²={val_metrics['r2']:.3f}")
-        log.info(f"Test RMSE={test_metrics['rmse']:.2f}  R²={test_metrics['r2']:.3f}")
+        log.info(f"Val  RMSE={val_metrics['rmse']:.2f}  R²={val_metrics['r2']:.3f}  MAPE={val_metrics['mape']:.2f}%")
+        log.info(f"Test RMSE={test_metrics['rmse']:.2f}  R²={test_metrics['r2']:.3f}  MAPE={test_metrics['mape']:.2f}%")
 
         # ── Bayesian bootstrap confidence intervals ──────────────────────────
         if not args.no_bootstrap:
