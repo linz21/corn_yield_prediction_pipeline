@@ -63,7 +63,9 @@ MLFLOW_ALLOW_FILE_STORE=true mlflow ui   # → http://localhost:5000
 uvicorn src.api.main:app --reload   # → http://localhost:8000/docs
 ```
 > **Note:** The steps above use synthetic demo data (240 rows) to get the pipeline running quickly. 
-> For the real production model (30,416 rows, real USDA yield data, R²=0.90), get a free API key 
+> For the real production model (30,416 raw ingested rows; 20,576 used for
+> training after a chronological 2000–2014/2015–2017/2018–2025 split;
+> R²=0.845 on forward-looking test set), get a free API key
 > at [quickstats.nass.usda.gov/api](https://quickstats.nass.usda.gov/api) and run:
 > ```bash
 > python src/data/ingest.py --api-key YOUR_USDA_KEY
@@ -96,16 +98,16 @@ curl -X POST http://localhost:8000/predict \
 
 ## Results
 
-| Metric | Value |
-|--------|-------|
-| Test RMSE | 13.6 bu/acre |
-| Test R² | 0.900 |
-| Test MAPE | 8.75% |
-| CI Coverage (95%) | 94.1% |
-| CI Width (mean) | 54.32 bu/acre |
-| Model Inference Latency | ~3-7ms (server-side, from API response) |
-| API Round-Trip Latency (p95) | 171.3ms (external, includes network) |
-| Training rows | 21,290 (70% split of 30,416 processed rows; 10% val / 20% test) |
+| Metric                       | Value                                              |
+| ----------------------------- | --------------------------------------------------- |
+| Test RMSE                    | 13.65 bu/acre                                      |
+| Test R²                      | 0.845                                              |
+| Test MAPE                    | 6.59%                                              |
+| CI Coverage (95%)            | 95.0%                                              |
+| CI Width (mean)              | 57.31 bu/acre                                      |
+| Model Inference Latency      | ~3-7ms (server-side, from API response)            |
+| API Round-Trip Latency (p95) | 171.3ms (external, includes network)               |
+| Training rows                | 20,576 (chronological split, years 2000–2014)      |
 
 ## Drift Monitoring
 
@@ -143,9 +145,11 @@ synthetic demo data purely to verify the pipeline runs end-to-end
 (data → features → train → serve → Docker build). This keeps CI fast and 
 independent of any API keys or credentials.
 
-The production model referenced in the Results section below was trained 
-separately on real USDA Quickstats data (30,416 rows, county-level, 
-2000–2025) and is not what CI builds. To reproduce the real model locally:
+The production model referenced in the Results section below was trained
+separately on real USDA Quickstats data (30,416 rows, county-level,
+2000–2025) and is not what CI builds. Evaluated with a chronological train/val/test split, so
+reported metrics reflect forward-looking generalization to unseen
+future years. To reproduce the real model locally:
 
 ```bash
 python src/data/ingest.py --api-key YOUR_USDA_KEY
