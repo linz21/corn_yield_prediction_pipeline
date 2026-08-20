@@ -35,7 +35,6 @@ USDA NASS API → Data Pipeline (DVC -> S3) → XGBoost
                           Evidently AI Drift Monitoring (validated ✓)
 ```
 ## Quickstart
-
 ```bash
 # 1. Clone and install
 git clone https://github.com/linz21/corn_yield_prediction_pipeline.git
@@ -50,11 +49,11 @@ dvc pull
 # 3. Get data (demo — no API key needed)
 python src/data/ingest.py --demo
 
-# 4. Build features
-python src/features/build_features.py
+# 4. Build features (--demo keeps this isolated from any real production data)
+python src/features/build_features.py --demo
 
-# 5. Train model (exports models/latest_model.pkl for serving)
-python src/models/train.py --no-bootstrap
+# 5. Train model (--config points at the demo data path; exports models/latest_model_demo.pkl)
+python src/models/train.py --no-bootstrap --config configs/config_demo.yaml
 
 # 6. View experiments
 MLFLOW_ALLOW_FILE_STORE=true mlflow ui   # → http://localhost:5000
@@ -62,16 +61,23 @@ MLFLOW_ALLOW_FILE_STORE=true mlflow ui   # → http://localhost:5000
 # 7. Serve API
 uvicorn src.api.main:app --reload   # → http://localhost:8000/docs
 ```
-> **Note:** The steps above use synthetic demo data (240 rows) to get the pipeline running quickly. 
-> For the real production model (30,416 raw ingested rows; 20,576 used for
-> training after a chronological 2000–2014/2015–2017/2018–2025 split;
-> R²=0.845 on forward-looking test set), get a free API key
-> at [quickstats.nass.usda.gov/api](https://quickstats.nass.usda.gov/api) and run:
+> **Note:** The steps above use synthetic demo data (240 rows) and are fully isolated from real
+> production data/models via `--demo`/`--config configs/config_demo.yaml` — safe to run repeatedly
+> without touching anything real.
+>
+> For the real production pipeline, get a free API key at
+> [quickstats.nass.usda.gov/api](https://quickstats.nass.usda.gov/api) and run:
 > ```bash
 > python src/data/ingest.py --api-key YOUR_USDA_KEY
 > python src/features/build_features.py
 > python src/models/train.py --run-name "production-model"
 > ```
+> This trains on the full, real dataset (30,416 rows, after excluding the current in-progress
+> season) and exports `models/latest_model.pkl`. Reported honest metrics — R²=0.845, MAPE=6.59%,
+> RMSE=13.65 bu/acre — come from a separate evaluation-only model trained on 2000-2014 data alone
+> and tested on a genuine chronological 2015-2025 holdout (see "Data exploration & model selection"
+> below for the full methodology). The actual deployed model is retrained on all available data
+> once that approach is validated — see "Note on the deployed model vs. reported metrics."
 
 ## Sample prediction with confidence interval
 
