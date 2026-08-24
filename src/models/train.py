@@ -27,8 +27,7 @@ log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Bayesian-style prediction intervals via bootstrap
-# This is Linlin's key differentiator — calibrated uncertainty estimates
+# Bootstrap prediction intervals for uncertainty estimates
 # ---------------------------------------------------------------------------
 
 
@@ -261,7 +260,7 @@ def main():
         log.info(f"Val  RMSE={val_metrics['rmse']:.2f}  R²={val_metrics['r2']:.3f}  MAPE={val_metrics['mape']:.2f}%")
         log.info(f"Test RMSE={test_metrics['rmse']:.2f}  R²={test_metrics['r2']:.3f}  MAPE={test_metrics['mape']:.2f}%")
 
-        # ── Bayesian bootstrap confidence intervals ──────────────────────────
+        # ── Bootstrap prediction intervals ──────────────────────────
         if not args.no_bootstrap:
             log.info("Computing bootstrap prediction intervals ...")
             n_boot = cfg["bayesian_ci"]["n_bootstrap"]
