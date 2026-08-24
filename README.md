@@ -2,7 +2,7 @@
 
 **Author:** Linlin Zhang · [github.com/linz21](https://github.com/linz21)
 
-A production-grade ML system that predicts US corn yield (bu/acre) with **Bayesian bootstrap confidence intervals**, full experiment tracking, drift monitoring, and CI/CD deployment.
+A production-grade ML system that predicts US corn yield (bu/acre) with **Bootstrap prediction intervals**, full experiment tracking, drift monitoring, and CI/CD deployment.
 
 ## 🔗 Live Demo
 Deployed on AWS EC2 with a permanent Elastic IP: **http://54.214.151.133:8000/docs**
