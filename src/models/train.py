@@ -263,8 +263,8 @@ def main():
         # ── Bootstrap prediction intervals ──────────────────────────
         if not args.no_bootstrap:
             log.info("Computing bootstrap prediction intervals ...")
-            n_boot = cfg["bayesian_ci"]["n_bootstrap"]
-            conf   = cfg["bayesian_ci"]["confidence_level"]
+            n_boot = cfg["bootstrap_pi"]["n_bootstrap"]
+            conf   = cfg["bootstrap_pi"]["confidence_level"]
             preds, lower, upper = bootstrap_prediction_intervals(
                 pipeline, X_train, y_train, X_test, n_boot, conf
             )

@@ -7,5 +7,5 @@ __pycache__/
 .python-version
 Miniconda*.sh
 Miniforge*.sh
-models/
+/models/
 reports/
