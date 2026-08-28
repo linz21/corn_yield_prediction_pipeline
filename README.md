@@ -28,7 +28,7 @@ USDA NASS API → Data Pipeline (DVC -> S3) → XGBoost
                                             ↓
                               Portable Model Export (joblib)
                                             ↓
-                               FastAPI /predict (with 95% CI)
+                               FastAPI /predict (with 95% prediction interval)
                                             ↓
                             Docker → GitHub Actions → AWS EC2
                                             ↓
@@ -109,8 +109,8 @@ curl -X POST http://localhost:8000/predict \
 | Test RMSE                    | 13.65 bu/acre                                      |
 | Test R²                      | 0.845                                              |
 | Test MAPE                    | 6.59%                                              |
-| CI Coverage (95%)            | 95.0%                                              |
-| CI Width (mean)              | 57.31 bu/acre                                      |
+| Prediciton Interval Coverage (95%)            | 95.0%                                              |
+| Prediction Interval Width (mean)              | 57.31 bu/acre                                      |
 | Model Inference Latency      | ~3-7ms (server-side, from API response)            |
 | API Round-Trip Latency (p95) | 171.3ms (external, includes network)               |
 | Training rows                | 20,576 (chronological split, years 2000–2014)      |
