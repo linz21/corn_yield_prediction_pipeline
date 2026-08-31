@@ -257,9 +257,8 @@ def main():
         for k, v in test_metrics.items():
             mlflow.log_metric(f"test_{k}", v)
 
-        log.info(f"Val  RMSE={val_metrics['rmse']:.2f}  R²={val_metrics['r2']:.3f}  MAPE={val_metrics['mape']:.2f}%")
-        log.info(f"Test RMSE={test_metrics['rmse']:.2f}  R²={test_metrics['r2']:.3f}  MAPE={test_metrics['mape']:.2f}%")
-
+        log.info(f"Val  RMSE={val_metrics['rmse']:.2f}  MAE={val_metrics['mae']:.2f}  R²={val_metrics['r2']:.3f}  MAPE={val_metrics['mape']:.2f}%")
+        log.info(f"Test RMSE={test_metrics['rmse']:.2f}  MAE={test_metrics['mae']:.2f}  R²={test_metrics['r2']:.3f}  MAPE={test_metrics['mape']:.2f}%")
         # ── Bootstrap prediction intervals ──────────────────────────
         if not args.no_bootstrap:
             log.info("Computing bootstrap prediction intervals ...")
