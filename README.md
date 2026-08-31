@@ -107,6 +107,7 @@ curl -X POST http://localhost:8000/predict \
 | Metric                       | Value                                              |
 | ----------------------------- | --------------------------------------------------- |
 | Test RMSE                    | 13.65 bu/acre                                      |
+| Test MAE                     | 9.92 bu/acre                                      |
 | Test R²                      | 0.845                                              |
 | Test MAPE                    | 6.59%                                              |
 | Prediciton Interval Coverage (95%)            | 95.0%                                              |
